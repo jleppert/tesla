@@ -1,0 +1,55 @@
+{
+  "name": "tesla",
+  "version": "0.1.0",
+  "description": "WebGL Mavlink Ground Control Station",
+  "main": "index.js",
+  "scripts": {
+    "test": "gulp test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jleppert/tesla.git"
+  },
+  "keywords": [
+    "mavlink",
+    "drones",
+    "gcs",
+    "ground",
+    "control",
+    "uav",
+    "multirotor"
+  ],
+  "author": "Johnathan Leppert",
+  "license": "MIT",
+  "devDependencies": {
+    "babel-core": "^5.8.23",
+    "babel-loader": "^5.3.2",
+    "browserify": "^11.0.1",
+    "browserify-dustjs": "^0.1.1",
+    "chokidar": "^1.0.5",
+    "dustjs-helpers": "^1.7.3",
+    "dustjs-linkedin": "^2.7.2",
+    "gulp": "^3.9.0",
+    "gulp-clean": "^0.3.1",
+    "gulp-rev": "^6.0.1",
+    "gulp-sourcemaps": "^1.5.2",
+    "gulp-uglify": "^1.4.1",
+    "gulp-util": "^3.0.6",
+    "lodash.assign": "^3.2.0",
+    "run-sequence": "^1.1.2",
+    "testem": "^0.9.4",
+    "vinyl-buffer": "^1.0.0",
+    "vinyl-source-stream": "^1.1.0",
+    "watchify": "^3.4.0"
+  },
+  "dependencies": {
+    "dustjs-linkedin": "^2.7.2",
+    "express": "^4.13.3",
+    "observed": "^1.1.1",
+    "page": "^1.6.3",
+    "to-virtual-dom": "^1.0.0",
+    "utils-merge": "^1.0.0",
+    "virtual-dom": "^2.1.1",
+    "zepto": "0.0.4"
+  }
+}

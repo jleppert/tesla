@@ -1,0 +1,3 @@
+An awesome cool {name} goes here!!!
+
+<button {@event click="{action}"/}>

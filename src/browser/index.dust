@@ -1,0 +1,11 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>{title}</title>
+</head>
+<body>
+</body>
+<link rel="stylesheet" type="text/css" href="{style-css}">
+<script src="{bundle-js}"></script>
+</html>

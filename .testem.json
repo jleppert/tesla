@@ -1,0 +1,7 @@
+{
+  "framework": "mocha",
+  "src_files": [
+    "var/build/*.js",
+    "src/**/*.spec.js"
+   ]
+}
