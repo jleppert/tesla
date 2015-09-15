@@ -7,7 +7,7 @@ function Map(app, id, view) {
   this.context.view = view;
 }
 
-Map.prototype.submit = function() {
+Map.prototype.doSomething = function() {
   console.log("called submit!");
 };
 
@@ -19,10 +19,6 @@ Map.prototype.context = {
 Map.prototype.render = function(chunk, context, bodies, params) {
   return chunk.map(function(inner_chunk) {
     template(this.context, function(err, out) {
-      // replace event handlers with unique component id to later attach event handlers after dom diff has completed
-      // figure out how to re-bind event if the dom has changed
-      // data-ev="componentId:event:prop"
-      // goes through dom and binds/unbinds events on dom patches
       inner_chunk.write(out).end();
     });
   }.bind(this));

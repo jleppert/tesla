@@ -5,8 +5,8 @@ var page       = require('page'),
     patch      = require('virtual-dom/patch'),
     tovdom     = require('to-virtual-dom'),
     createElement = require('virtual-dom/create-element'),
+    virtualize = require('vdom-virtualize')
     O          = require('observed');
-
 
 function Tesla() { 
   this.router = page;
@@ -46,27 +46,46 @@ Tesla.prototype.route = function() {
 
 Tesla.prototype.render = function() {
   this.views.root(this.context, function(err, out) {
-    var newTree = tovdom(out);
+    var newTree = virtualize.fromHTML(out);
+    this.attachHandlers(newTree);
     var patches = diff(this.tree, newTree);
-    console.log("patches!!", patches);
     this.rootNode = patch(this.rootNode, patches);
     this.tree = newTree;
   }.bind(this));
 };
 
-Tesla.prototype.attachHandlers = function(patch) {
-  Object.keys(patch).forEach(function(n) {
-    var p = path[n].patch;
-    if(p.dataset && p.dataset.e) {
-      // attach event handler   
+function Hook(app, event) {
+  this.app = app;
+}
+
+Hook.prototype.hook = function(el, prop) {
+  var event = prop.split(':');
+  var viewInstance = this.app.views[event[0]].instances[event[1]];
+  el.addEventListener(event[2], viewInstance[event[3]].bind(viewInstance));
+}
+
+Tesla.prototype.attachHandlers = function(tree) {
+  var app = this;
+  attachEvent(tree);
+
+  function attachEvent(node) {
+    if(node.properties && node.properties.dataset) {
+      var dataE = node.properties.dataset['e'];
+      if(dataE) {
+        node.properties[dataE] = new Hook(app);
+      }
     }
-  });
+    
+    for(var i = 0, children = node.children; children != undefined && i < children.length; i++) {
+      attachEvent(children[i]);
+    }
+  }
 };
 
 Tesla.prototype.start = function(node) {
   this.views.root(function(err, out) {
     this.tree = tovdom(out);
-    console.log(this.tree);
+    this.attachHandlers(this.tree);
     this.rootNode = createElement(this.tree);
     document.body.appendChild(this.rootNode);
   }.bind(this));
