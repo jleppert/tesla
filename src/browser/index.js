@@ -61,7 +61,14 @@ function Hook(app, event) {
 Hook.prototype.hook = function(el, prop) {
   var event = prop.split(':');
   var viewInstance = this.app.views[event[0]].instances[event[1]];
-  el.addEventListener(event[2], viewInstance[event[3]].bind(viewInstance));
+  this.listener = viewInstance[event[3]].bind(viewInstance);
+  el.addEventListener(event[2], this.listener);
+}
+
+Hook.prototype.unhook = function(el, prop) {
+  var event = prop.split(':');
+  var viewInstance = this.app.views[event[0]].instances[event[1]];
+  el.removeEventListener(event[2], this.listener);
 }
 
 Tesla.prototype.attachHandlers = function(tree) {
