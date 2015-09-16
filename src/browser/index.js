@@ -6,14 +6,13 @@ var page       = require('page'),
     tovdom     = require('to-virtual-dom'),
     createElement = require('virtual-dom/create-element'),
     virtualize = require('vdom-virtualize')
-    O          = require('observed');
+    O          = require('observed'),
+    work       = require('webworkify');
 
-function Tesla() { 
+function Tesla() {
   this.router = page;
   this.views = {};
   
-  window.tesla = this;
-
   Object.keys(views).forEach(function(view) {
     if(view === 'root') {
       this.views.root = views[view];
@@ -37,6 +36,12 @@ function Tesla() {
     dust.helpers.event = function(chunk, context, bodies, params) {
       return chunk.write('data-e="' + context.get('view') + ':' + context.get('id') + ':' + Object.keys(params).map(function(param) { return dust.helpers.tap(param, chunk, context) + ':' + dust.helpers.tap(params[param], chunk, context) }).join(':') + '"');
     };
+    dust.helpers.view = function(chunk, context, bodies, params) {
+      var tag = dust.helpers.tap(params.tag, chunk, context) || 'div';
+      chunk.write('<' + tag + ' data-v="' + context.get('view') + ':' + context.get('id') + '">');
+      chunk.render(bodies.block, context);
+      return chunk.write('</' + tag + '>');
+    };
   }.bind(this));
 }
 
@@ -54,21 +59,37 @@ Tesla.prototype.render = function() {
   }.bind(this));
 };
 
-function Hook(app, event) {
+function Event(app) {
   this.app = app;
 }
 
-Hook.prototype.hook = function(el, prop) {
+Event.prototype.hook = function(el, prop) {
   var event = prop.split(':');
   var viewInstance = this.app.views[event[0]].instances[event[1]];
   this.listener = viewInstance[event[3]].bind(viewInstance);
   el.addEventListener(event[2], this.listener);
 }
 
-Hook.prototype.unhook = function(el, prop) {
+Event.prototype.unhook = function(el, prop) {
   var event = prop.split(':');
   var viewInstance = this.app.views[event[0]].instances[event[1]];
   el.removeEventListener(event[2], this.listener);
+}
+
+function Container(app) {
+  this.app = app;
+}
+
+Container.prototype.hook = function(el, prop) {
+  var view = prop.split(':');
+  var viewInstance = this.app.views[view[0]].instances[view[1]];
+  viewInstance.el = el;
+}
+
+Container.prototype.unhook = function(el, prop) {
+  var view = prop.split(':');
+  var viewInstance = this.app.views[view[0]].instances[view[1]];
+  delete viewInstance.el;
 }
 
 Tesla.prototype.attachHandlers = function(tree) {
@@ -76,10 +97,14 @@ Tesla.prototype.attachHandlers = function(tree) {
   attachEvent(tree);
 
   function attachEvent(node) {
-    if(node.properties && node.properties.dataset) {
-      var dataE = node.properties.dataset['e'];
+    if(node.properties && node.properties.attributes) {
+      var dataE = node.properties.attributes['data-e'];
+      var view = node.properties.attributes['data-v'];
       if(dataE) {
-        node.properties[dataE] = new Hook(app);
+        node.properties[dataE] = new Event(app);
+      }
+      if(view) {
+        node.properties[view] = new Container(app);
       }
     }
     
@@ -91,7 +116,7 @@ Tesla.prototype.attachHandlers = function(tree) {
 
 Tesla.prototype.start = function(node) {
   this.views.root(function(err, out) {
-    this.tree = tovdom(out);
+    this.tree = virtualize.fromHTML(out);
     this.attachHandlers(this.tree);
     this.rootNode = createElement(this.tree);
     document.body.appendChild(this.rootNode);

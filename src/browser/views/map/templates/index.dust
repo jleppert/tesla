@@ -1,3 +1,4 @@
-An awesome cool {name} goes here!!!
-
-<button {@event click="{action}"/}>
+{@view tag="div"}
+  An awesome cool {name} goes here!!!
+  <button {@event click="{action}"/}>
+{/view}

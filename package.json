@@ -50,6 +50,7 @@
     "to-virtual-dom": "^1.0.0",
     "utils-merge": "^1.0.0",
     "virtual-dom": "^2.1.1",
+    "webworkify": "^1.0.2",
     "zepto": "0.0.4"
   }
 }

@@ -8,7 +8,7 @@ function Map(app, id, view) {
 }
 
 Map.prototype.doSomething = function() {
-  console.log("called submit!");
+  console.log("called do something!");
 };
 
 Map.prototype.context = {
