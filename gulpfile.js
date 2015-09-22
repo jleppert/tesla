@@ -16,6 +16,7 @@ var watchify   = require('watchify'),
     run        = require('run-sequence'),
     chokidar   = require('chokidar'),
     sass       = require('gulp-sass'),
+    livereload = require('gulp-livereload'),
     testem     = require('testem');
 
 function initBundler () {
@@ -35,7 +36,7 @@ function initBundler () {
     global.b = b;
 
     b.on('update', function() {
-      run(['bundle']);
+      run('bundle');
     });
     b.on('log', gutil.log);
     chokidar.watch('./src/browser/index.dust').on('change', function() {
@@ -46,24 +47,38 @@ function initBundler () {
   return global.b;
 }
 
+function initStyleWatcher() {
+  if(!global.styleWatcher) {
+    global.styleWatcher = chokidar.watch('./src/browser/**/*.scss').on('change', function() {
+      run('styles');
+    });
+  }
+}
+
+function renderIndex(manifest, done) {
+  var index    = dust.compileFn(fs.readFileSync('./src/browser/index.dust', 'utf8'), 'index');
+      //manifest = JSON.parse(fs.readFileSync('./var/build/rev-manifest.json'));
+  
+  Object.keys(manifest).forEach(function(key) {
+    manifest[key.replace('.', '-')] = manifest[key];
+  });
+
+  index(manifest, function(err, out) {
+    if(err) {
+      gutil.log(err);
+      done();
+    } else {
+      fs.writeFileSync('./var/build/index.html', out);
+      done();
+    }
+  });
+}
+
 gulp.task('dev', ['bundle', 'styles'], function(done) {
-  run('rev', function() { 
-    var index    = dust.compileFn(fs.readFileSync('./src/browser/index.dust', 'utf8'), 'index'),
-        manifest = JSON.parse(fs.readFileSync('./var/build/rev-manifest.json'));
+  global.livereload = livereload.listen();
 
-    Object.keys(manifest).forEach(function(key) {
-      manifest[key.replace('.', '-')] = manifest[key];
-    });
-
-    index(manifest, function(err, out) {
-      if(err) {
-        gutil.log(err);
-        done();
-      } else {
-        fs.writeFileSync('./var/build/index.html', out);
-        done(); 
-      }
-    });
+  renderIndex({ 'bundle.js': 'bundle.js', 'app.css': 'app.css' }, function() {
+    initStyleWatcher();
   });
 });
 
@@ -88,7 +103,8 @@ gulp.task('styles', function() {
       includePaths: ['./node_modules/bootstrap/scss', './src/browser/**/*.scss']
     }).on('error', gutil.log))
     .pipe(sourcemaps.write('.'))
-    .pipe(gulp.dest('./var/build'));
+    .pipe(gulp.dest('./var/build'))
+    .pipe(livereload());
 });
 
 gulp.task('rev', function(done) {
@@ -111,5 +127,6 @@ function bundle() {
       .pipe(uglify())
       .on('error', gutil.log)
       .pipe(sourcemaps.write('.'))
-      .pipe(gulp.dest('./var/build'));
+      .pipe(gulp.dest('./var/build'))
+      .pipe(livereload());
 }

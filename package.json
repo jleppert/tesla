@@ -48,6 +48,7 @@
     "express": "^4.13.3",
     "foundation": "^4.2.1",
     "foundation-sites": "^5.5.2",
+    "gulp-livereload": "^3.8.0",
     "gulp-rev-all": "^0.8.21",
     "gulp-rimraf": "^0.1.1",
     "gulp-sass": "^2.0.4",
