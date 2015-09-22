@@ -18,17 +18,33 @@ var watchify   = require('watchify'),
     sass       = require('gulp-sass'),
     testem     = require('testem');
 
-var customOpts = {
-  entries: ['./browser.js'],
-  debug: true,
-  cache: {},
-  packageCache: {},
-  fullPaths: true
-};
-var opts = assign({}, watchify.args, customOpts);
-var b = watchify(browserify(opts));
+function initBundler () {
+  if(!global.b) {
+    var customOpts = {
+      entries: ['./browser.js'],
+      debug: true,
+      cache: {},
+      packageCache: {},
+      fullPaths: true
+    };
+    var opts = assign({}, watchify.args, customOpts);
+    var b = watchify(browserify(opts));
 
-b.transform(dustify);
+    b.transform(dustify);
+
+    global.b = b;
+
+    b.on('update', function() {
+      run(['bundle']);
+    });
+    b.on('log', gutil.log);
+    chokidar.watch('./src/browser/index.dust').on('change', function() {
+      run('dev');
+    });
+  }
+
+  return global.b;
+}
 
 gulp.task('dev', ['bundle', 'styles'], function(done) {
   run('rev', function() { 
@@ -56,14 +72,6 @@ gulp.task('test', function() {
   return t.startCI(require('./.testem.json'));
 });
 
-b.on('update', function() {
-  run(['dev']);
-});
-b.on('log', gutil.log);
-chokidar.watch('./src/browser/index.dust').on('change', function() {
-  run('dev');
-});
-
 gulp.task('clean', function(done) {
   rimraf('./var/build', function() {
     mkdirp.sync('./var/build');
@@ -83,7 +91,7 @@ gulp.task('styles', function() {
     .pipe(gulp.dest('./var/build'));
 });
 
-gulp.task('rev', function() {
+gulp.task('rev', function(done) {
   return gulp.src(['./var/build/**/*.js', './var/build/**/*.css'])
     .pipe(rev())
     .pipe(gulp.dest('./var/build/'))
@@ -95,7 +103,7 @@ gulp.task('rev', function() {
 
 gulp.task('bundle', bundle);
 function bundle() {
-    return b.bundle()
+    return initBundler().bundle()
       .on('error', gutil.log.bind(gutil, 'Browserify Error'))
       .pipe(source('bundle.js'))
       .pipe(buffer())
