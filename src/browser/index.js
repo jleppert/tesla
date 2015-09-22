@@ -25,8 +25,8 @@ function Tesla() {
       var instance = this.views[view].instances[params.id] || new views[view](this, params.id, view);
       
       if(!instance.e) {
-        instance.e = O(instance.context);
-        instance.e.on('change', this.render.bind(this));
+        instance.contextObserver = O(instance.context);
+        instance.contextObserver.on('change', this.render.bind(this));
       }
       
       this.views[view].instances[params.id] = instance;
@@ -38,7 +38,9 @@ function Tesla() {
     };
     dust.helpers.view = function(chunk, context, bodies, params) {
       var tag = dust.helpers.tap(params.tag, chunk, context) || 'div';
-      chunk.write('<' + tag + ' data-v="' + context.get('view') + ':' + context.get('id') + '">');
+      var klass = dust.helpers.tap(params.class, chunk, context) || '';
+      var id    = dust.helpers.tap(params.id, chunk, context) || '';
+      chunk.write('<' + tag + ' id="' + id + '" data-v="' + context.get('view') + ':' + context.get('id') + '" class="' + klass + '">');
       chunk.render(bodies.block, context);
       return chunk.write('</' + tag + '>');
     };
@@ -84,11 +86,13 @@ Container.prototype.hook = function(el, prop) {
   var view = prop.split(':');
   var viewInstance = this.app.views[view[0]].instances[view[1]];
   viewInstance.el = el;
+  viewInstance.emit('render');
 }
 
 Container.prototype.unhook = function(el, prop) {
   var view = prop.split(':');
   var viewInstance = this.app.views[view[0]].instances[view[1]];
+  viewInstance.emit('destroy');
   delete viewInstance.el;
 }
 

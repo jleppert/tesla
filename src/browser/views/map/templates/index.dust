@@ -1,4 +1,4 @@
-{@view tag="div"}
+{@view id="{id}" tag="div" class="map"}
   An awesome cool {name} goes here!!!
   <button {@event click="{action}"/}>
 {/view}
