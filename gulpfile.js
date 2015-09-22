@@ -11,38 +11,43 @@ var watchify   = require('watchify'),
     uglify     = require('gulp-uglify'),
     dust       = require('dustjs-linkedin'),
     fs         = require('fs'),
-    clean      = require('gulp-clean'),
+    rimraf     = require('rimraf'),
+    mkdirp     = require('mkdirp'),
     run        = require('run-sequence'),
     chokidar   = require('chokidar'),
+    sass       = require('gulp-sass'),
     testem     = require('testem');
 
 var customOpts = {
   entries: ['./browser.js'],
-  debug: true
+  debug: true,
+  cache: {},
+  packageCache: {},
+  fullPaths: true
 };
 var opts = assign({}, watchify.args, customOpts);
 var b = watchify(browserify(opts));
 
 b.transform(dustify);
 
-gulp.task('dev', ['bundle'], function(done) {
-  var index    = dust.compileFn(fs.readFileSync('./src/browser/index.dust', 'utf8'), 'index'),
-      manifest = JSON.parse(fs.readFileSync('./var/build/rev-manifest.json'));
+gulp.task('dev', ['bundle', 'styles'], function(done) {
+  run('rev', function() { 
+    var index    = dust.compileFn(fs.readFileSync('./src/browser/index.dust', 'utf8'), 'index'),
+        manifest = JSON.parse(fs.readFileSync('./var/build/rev-manifest.json'));
 
-  Object.keys(manifest).forEach(function(key) {
-    manifest[key.replace('.', '-')] = manifest[key];
-  });
+    Object.keys(manifest).forEach(function(key) {
+      manifest[key.replace('.', '-')] = manifest[key];
+    });
 
-  console.log("manifest!", manifest);
-
-  index(manifest, function(err, out) {
-    if(err) {
-      gutil.log(err);
-      done();
-    } else {
-      fs.writeFileSync('./var/build/index.html', out);
-      done(); 
-    }
+    index(manifest, function(err, out) {
+      if(err) {
+        gutil.log(err);
+        done();
+      } else {
+        fs.writeFileSync('./var/build/index.html', out);
+        done(); 
+      }
+    });
   });
 });
 
@@ -52,7 +57,7 @@ gulp.task('test', function() {
 });
 
 b.on('update', function() {
-  run(['clean', 'dev']);
+  run(['dev']);
 });
 b.on('log', gutil.log);
 chokidar.watch('./src/browser/index.dust').on('change', function() {
@@ -60,11 +65,35 @@ chokidar.watch('./src/browser/index.dust').on('change', function() {
 });
 
 gulp.task('clean', function(done) {
-  return gulp.src('./var/build', {read:false})
-    .pipe(clean());
+  rimraf('./var/build', function() {
+    mkdirp.sync('./var/build');
+    fs.writeFileSync('./var/build/rev-manifest.json', JSON.stringify({}));
+    done();
+  });
 });
 
-gulp.task('bundle', ['clean'], bundle);
+gulp.task('styles', function() {
+  gulp.src('./src/browser/**/*.scss')
+    .pipe(sass({
+      outputStyle: 'compressed',
+      sourceComments: 'map',
+      includePaths: ['./node_modules/bootstrap/scss', './src/browser/**/*.scss']
+    }).on('error', gutil.log))
+    .pipe(sourcemaps.write('.'))
+    .pipe(gulp.dest('./var/build'));
+});
+
+gulp.task('rev', function() {
+  return gulp.src(['./var/build/**/*.js', './var/build/**/*.css'])
+    .pipe(rev())
+    .pipe(gulp.dest('./var/build/'))
+    .pipe(rev.manifest({
+      merge: true
+    }))
+    .pipe(gulp.dest('./var/build'));
+});
+
+gulp.task('bundle', bundle);
 function bundle() {
     return b.bundle()
       .on('error', gutil.log.bind(gutil, 'Browserify Error'))
@@ -73,9 +102,6 @@ function bundle() {
       .pipe(sourcemaps.init({loadMaps: true}))
       .pipe(uglify())
       .on('error', gutil.log)
-      .pipe(rev())
-      .pipe(sourcemaps.write('./'))
-      .pipe(gulp.dest('./var/build'))
-      .pipe(rev.manifest())
+      .pipe(sourcemaps.write('.'))
       .pipe(gulp.dest('./var/build'));
 }
