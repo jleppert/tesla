@@ -44,6 +44,10 @@ function Tesla() {
       chunk.render(bodies.block, context);
       return chunk.write('</' + tag + '>');
     };
+    dust.helpers.render = function(chunk, context, bodies, params) {
+      var widget = dust.helpers.tap(params.widget, chunk, context);
+      return chunk.write('<div data-w="{view}:{id}:{widget}"></div>'.replace('{view}', context.get('view')).replace('{id}', context.get('id')).replace('{widget}', widget));
+    };
   }.bind(this));
 }
 
@@ -98,30 +102,40 @@ Container.prototype.unhook = function(el, prop) {
 
 Tesla.prototype.attachHandlers = function(tree) {
   var app = this;
-  attachEvent(tree);
+  return attachEvent(tree);
 
   function attachEvent(node) {
     if(node.properties && node.properties.attributes) {
       var dataE = node.properties.attributes['data-e'];
       var view = node.properties.attributes['data-v'];
+      var widget = node.properties.attributes['data-w'];
       if(dataE) {
         node.properties[dataE] = new Event(app);
       }
       if(view) {
         node.properties[view] = new Container(app);
       }
+      if(widget) {
+        var props = widget.split(':'); 
+        var viewInstance = app.views[props[0]].instances[props[1]];
+        node = viewInstance.widgets[props[2]];
+      }
     }
     
-    for(var i = 0, children = node.children; children != undefined && i < children.length; i++) {
-      attachEvent(children[i]);
+    if(node.children) {
+      for(var i = 0, children = node.children; children != undefined && i < children.length; i++) {
+        node.children[i] = attachEvent(children[i]);
+      }
     }
+
+    return node;
   }
 };
 
 Tesla.prototype.start = function(node) {
   this.views.root(function(err, out) {
     this.tree = virtualize.fromHTML(out);
-    this.attachHandlers(this.tree);
+    this.tree = this.attachHandlers(this.tree);
     this.rootNode = createElement(this.tree);
     document.body.appendChild(this.rootNode);
   }.bind(this));
