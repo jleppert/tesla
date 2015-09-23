@@ -24,9 +24,9 @@ function Tesla() {
       this.views[view] = this.views[view] || { instances: {} };
       var instance = this.views[view].instances[params.id] || new views[view](this, params.id, view);
       
-      if(!instance.e) {
-        instance.contextObserver = O(instance.context);
-        instance.contextObserver.on('change', this.render.bind(this));
+      if(!instance.ee) {
+        instance.ee = O(instance.context);
+        instance.ee.on('change', this.render.bind(this));
       }
       
       this.views[view].instances[params.id] = instance;
