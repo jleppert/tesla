@@ -41,6 +41,7 @@
     "watchify": "^3.4.0"
   },
   "dependencies": {
+    "bluebird": "^2.10.1",
     "bootstrap": "git@github.com:twbs/bootstrap.git#v4-dev",
     "dustjs-linkedin": "^2.7.2",
     "eventemitter2": "^0.4.14",
@@ -50,14 +51,16 @@
     "gulp-rimraf": "^0.1.1",
     "gulp-sass": "^2.0.4",
     "jquery": "^2.1.4",
+    "knox": "^0.9.2",
     "mapbox-gl": "^0.11.0",
     "mkdirp": "^0.5.1",
     "next-tick": "^0.2.2",
     "observed": "^1.1.1",
     "page": "^1.6.3",
     "rimraf": "^2.4.3",
+    "s3": "^4.4.0",
     "to-virtual-dom": "^1.0.0",
     "utils-merge": "^1.0.0",
-    "virtual-dom": "^2.1.1",
+    "virtual-dom": "^2.1.1"
   }
 }
