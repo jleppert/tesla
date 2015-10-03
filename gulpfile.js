@@ -24,6 +24,7 @@ var watchify   = require('watchify'),
     git        = require('git-rev');
 
 var args = require('minimist')(process.argv.slice(2));
+var env = Object.freeze(JSON.parse(fs.readFileSync('./.env.json')));
 
 function initBundler(dev) {
   if(!global.b && dev) {
@@ -76,14 +77,14 @@ function S3PutPromisifier(method) {
       var emitter = method.apply(self, args);
 
       emitter.on('error', function(err) {
-        reject([err, file, opts]);
+        reject({ err: err, file: file, opts: opts});
       });
 
       emitter.on('response', function(res) {
         if(res.statusCode === 200) {
-          resolve([res, file, opts]);
+          resolve({res: res, file: file, opts: opts});
         } else {
-          reject([res, file, opts]);
+          reject({ res: res, file: file, opts: opts});
         }
       });
 
@@ -145,27 +146,35 @@ gulp.task('dev', ['bundle-dev', 'styles-dev'], function(done) {
   });
 });
 
+function getCreateS3Client() {
+  if(global.client) return client;
+
+  var client = knox.createClient({
+    key: env.aws.accessKey,
+    secret: env.aws.secretKey,
+    region: env.aws.region,
+    bucket: env.aws.publishBucket
+  });
+
+  Promise.promisifyAll(client, {
+    promisifier: S3PutPromisifier,
+    filter: function(name) {
+      if(name === 'put') return true;
+    }
+  });
+
+  global.client = client;
+
+  return client;
+}
+
 gulp.task('publish', ['bundle', 'styles'], function(done) {
   run('rev', function() {
     var manifest = JSON.parse(fs.readFileSync('./var/build/rev-manifest.json'));
       
     renderIndex(manifest, true, function(filename) {
-      var env = JSON.parse(fs.readFileSync('./.env.json'));
-
-      var client = knox.createClient({
-        key: env.aws.accessKey,
-        secret: env.aws.secretKey,
-        region: env.aws.region,
-        bucket: env.aws.publishBucket
-      });
-
-      Promise.promisifyAll(client, {
-        promisifier: S3PutPromisifier,
-        filter: function(name) {
-          if(name === 'put') return true;
-        }
-      });
-
+      var client = getCreateS3Client();
+      
       var uploads = [];
       var indexSrc = fs.readFileSync('./var/build/' + filename);
       git.short(function(hash) {
@@ -194,12 +203,12 @@ gulp.task('publish', ['bundle', 'styles'], function(done) {
 
         Promise.all(uploads).then(function success(items) {
           items.forEach(function(item) {
-            gutil.log("Successfully uploaded file", item[1]);
+            gutil.log("Successfully uploaded file", item.file);
           });
           done();
         }, function failure(items) {
           items.forEach(function(item) {
-            gutil.log("Error uploading file", item[1], item[0], item[2]);
+            gutil.log("Error uploading file", item.file, item.res);
           });
           done();
         }).catch(function(e) {
@@ -274,7 +283,9 @@ gulp.task('list', function(done) {
       gutil.log("Error listing contents of bucket", env.aws.publishBucket);
     } else {
       data.Contents.forEach(function(item) {
-        gutil.log(item.Key, item.Size);
+        if(item.Key.indexOf('index.json') != -1) {
+          gutil.log('Version', item.Key.split('/')[0]);
+        }
       });
     }
 
@@ -282,7 +293,7 @@ gulp.task('list', function(done) {
   });
 });
 
-gulp.task('set-active', function(done) {
+gulp.task('activate', function(done) {
   var env = JSON.parse(fs.readFileSync('./.env.json'));
 
   aws.config.update({
@@ -292,28 +303,57 @@ gulp.task('set-active', function(done) {
   });
 
   var s3 = new aws.S3({ params: { Bucket: env.aws.publishBucket }});
+
+  console.log(args.sha.substr(0, 7) + '/index.json');
  
   s3.getObject({
     Bucket: env.aws.publishBucket,
-    Key: args.sha + '/index.json'
+    Key: args.sha.substr(0, 7) + '/index.json'
   }, function(err, data) {
     if(err) {
       gutil.log("Error getting index config from S3", err);
+      process.exit(1);
     } else {
       var config = JSON.parse(data.Body.toString());
-      console.log(config);
-      s3.copyObject({
+      console.log(args.sha.substr(0, 7) + '/' + config.index);
+
+      s3.getObject({
         Bucket: env.aws.publishBucket,
-        CopySource: args.sha + '/' + config.index,
-        ACL: 'public-read',
-        Key: 'index.html'
+        Key: args.sha.substr(0, 7) + '/' + config.index
       }, function(err, data) {
         if(err) {
-          console.log(this);
-          gutil.log("Error occured copying object from S3", err);
+          gutil.log("Error getting index from S3", err);
+          process.exit(1);
         } else {
-          gutil.log("Set current index to", args.sha + '/' + config.index);
-          done();
+          var index = data.toString();
+          var client = getCreateS3Client();
+
+          var deployedJSON = JSON.stringify(config);
+          client.putAsync('/' + 'deployed.json', {
+            'Content-Length': Buffer.byteLength(deployedJSON),
+            'Content-Type': 'application/json',
+            'Expires': 0,
+            'Pragma': 'no-cache',
+            'Cache-Control': 'no-cache, no-store, must-revalidate'
+          }, deployedJSON).then(function success(item) {
+            gutil.log("Successfully uploaded deployed json", item.file, "for sha", args.sha.substr(0, 7));
+          }, function failure(item) {
+            gutil.log("Error uploading deployed json", item.file, item.res);
+            process.exit(1);
+          });
+
+          client.putAsync('/' + 'index.html', {
+            'Content-Length': Buffer.byteLength(index),
+            'Content-Type': 'text/html',
+            'Expires': 0,
+            'Pragma': 'no-cache',
+            'Cache-Control': 'no-cache, no-store, must-revalidate'
+          }, index).then(function success(item) {
+            gutil.log("Successfully uploaded index", item.file, "for sha", args.sha.substr(0, 7));
+          }, function failure(item) {
+            gutil.log("Error uploading index", item.file, item.res);
+            process.exit(1);
+          });
         }
       });
     }
